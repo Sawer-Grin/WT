@@ -1,0 +1,184 @@
+package edu.llwwwwll.task01.dao.impl;
+
+import edu.llwwwwll.task01.dao.ApplianceDAO;
+import edu.llwwwwll.task01.entity.criteria.Criteria;
+import edu.llwwwwll.task01.entity.Appliance;
+
+import java.beans.XMLDecoder;
+import java.beans.XMLEncoder;
+import java.io.*;
+
+import java.lang.reflect.Field;
+import java.util.*;
+
+/**
+ * Implementation of Appliance DAO.
+ */
+public class ApplianceDAOImpl implements ApplianceDAO {
+	/**
+	 * path to XML file.
+	 */
+	private static final String PATH = "src/main/resources/appliances.xml";
+
+	/**
+	 * finds all Appliance by criteria.
+	 * @param criteria filters by this.
+	 * @return list of Appliance.
+	 */
+	@Override
+	public List<Appliance> find(Criteria criteria) {
+		List<Appliance> appliances = new ArrayList<>();
+		XMLDecoder decoder = null;
+		try{
+			decoder = new XMLDecoder(
+					new BufferedInputStream(
+							new FileInputStream(PATH)));
+			Appliance result;
+			do{
+				result = (Appliance)decoder.readObject();
+
+				if (hasCriteria(criteria, result)){
+					appliances.add((Appliance) result);
+				}
+			}
+			while(result != null);
+
+		}
+		catch (FileNotFoundException e){
+			System.out.println("File not found");
+		}
+		catch (ArrayIndexOutOfBoundsException ignored){
+			//end of file
+		} catch (NoSuchFieldException | IllegalAccessException e) {
+			e.printStackTrace();
+		}
+		finally {
+			decoder.close();
+		}
+		return appliances;
+
+	}
+
+	/**
+	 * does appliance have criteria?
+	 * @param criteria filters by criteria
+	 * @param appliance appliance
+	 * @return true if appliance has all criteria
+	 * @throws NoSuchFieldException if no field
+	 * @throws IllegalAccessException if no access to field
+	 */
+	private boolean hasCriteria(Criteria criteria, Appliance appliance) throws NoSuchFieldException, IllegalAccessException {
+		if (!appliance.getClass().getSimpleName().equals(criteria.getGroupSearchName())){
+			return false;
+		}
+
+		Set<String> properties = criteria.getCriteria().keySet();
+
+		for (String prop : properties) {
+			Object fieldValue;
+			Field field;
+			try {
+				 field = appliance.getClass().getDeclaredField(prop);
+			}
+			catch (NoSuchFieldException e){
+				field = appliance.getClass().getSuperclass().getDeclaredField(prop);
+			}
+
+			field.setAccessible(true);
+			fieldValue = field.get(appliance);
+			if (!fieldValue.toString().equals(criteria.getCriteria().get(prop).toString())) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * saves list of Appliance to XML file.
+	 * @param list list of Appliance.
+	 */
+	@Override
+	public void saveXML (List<Appliance> list) {
+		try {
+			XMLEncoder encoder = new XMLEncoder(
+					new BufferedOutputStream(
+							new FileOutputStream(PATH)));
+			for (Appliance appliance : list) {
+				encoder.writeObject(appliance);
+			}
+			encoder.close();
+		}
+		 catch (ArrayIndexOutOfBoundsException | FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	/**
+	 * parses XML file to list of Appliance.
+	 * @return list of Appliance.
+	 */
+	@Override
+	public List<Appliance> parseXML() {
+		List<Appliance> appliances = new ArrayList<>();
+		XMLDecoder decoder = null;
+		try{
+			decoder = new XMLDecoder(
+				new BufferedInputStream(
+						new FileInputStream(PATH)));
+			Object result;
+			do{
+				result = decoder.readObject();
+				appliances.add((Appliance) result);
+			}
+			while(result != null);
+
+			}
+		catch (FileNotFoundException e){
+			System.out.println("File not found");
+		}
+		catch (ArrayIndexOutOfBoundsException ignored){
+			//end of file
+		}finally {
+			decoder.close();
+		}
+		return appliances;
+	}
+
+
+	@Override
+	public List<Appliance> findAll(Class<? extends Enum<?>> e){
+		List<Appliance> appliances = parseXML();
+		List<Appliance> result = new ArrayList<>();
+		for (Appliance appliance : appliances){
+			if (e.getSimpleName().equals(appliance.getClass().getSimpleName())){
+				result.add(appliance);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * finds all appliances with minimal price.
+	 * @return list of appliances.
+	 */
+	@Override
+	public List<Appliance> findApplianceWithMinPrice() {
+		List<Appliance> appliances = parseXML();
+		appliances.sort(Comparator.comparing(Appliance::getPrice));
+		List<Appliance> result = new ArrayList<>();
+
+		double minPrice = appliances.get(0).getPrice();
+		int i =0;
+
+		while (appliances.get(i).getPrice() == minPrice){
+			result.add(appliances.get(i));
+			i++;
+		}
+		return result;
+	}
+
+
+
+
+}
